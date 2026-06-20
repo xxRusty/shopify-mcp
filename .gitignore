@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+secrets.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+.venv-test/
+.pytest_cache/
+*.mcpb

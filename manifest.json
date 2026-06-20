@@ -1,0 +1,104 @@
+{
+  "dxt_version": "0.1",
+  "name": "shopify-mcp-server",
+  "display_name": "Shopify Admin MCP Server (Universal, Read-Only)",
+  "version": "1.0.0",
+  "description": "Universal read-only MCP for Shopify Admin GraphQL API 2026-04. 6 tools cover 100% of the read surface. Multi-store support via SHOPIFY_STORES JSON.",
+  "long_description": "6 universal tools: shopify_list_stores, shopify_graphql_query, shopify_graphql_introspect, shopify_bulk_query, shopify_bulk_poll, shopify_shopifyql. Covers 100% of the Shopify Admin GraphQL read surface (products, orders, customers, inventory, fulfillments, discounts, metafields, metaobjects, analytics, bulk exports). Read-only enforced at the query parser level via graphql-core; only bulkOperationCancel is permitted as a mutation. Multi-store: pass SHOPIFY_STORES as a JSON object mapping alias → {domain, client_id, client_secret} (or {domain, access_token}). Single-store fallback via SHOPIFY_DOMAIN + SHOPIFY_CLIENT_ID/SECRET or SHOPIFY_ACCESS_TOKEN. Supports both Dev Dashboard custom apps (client_credentials OAuth, 24h tokens auto-refreshed) and legacy pre-2026 custom apps (shpat_ tokens). Cost-based throttle aware per store.",
+  "author": {
+    "name": "ScalablyAI",
+    "url": "https://github.com/scalably/shopify-mcp"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "server.py",
+    "mcp_config": {
+      "command": "python3",
+      "args": ["${__dirname}/server.py"],
+      "env": {
+        "SHOPIFY_STORES": "${user_config.shopify_stores}",
+        "SHOPIFY_SHOP_DOMAIN": "${user_config.shopify_shop_domain}",
+        "SHOPIFY_CLIENT_ID": "${user_config.shopify_client_id}",
+        "SHOPIFY_CLIENT_SECRET": "${user_config.shopify_client_secret}",
+        "SHOPIFY_ACCESS_TOKEN": "${user_config.shopify_access_token}"
+      },
+      "cwd": "${__dirname}"
+    }
+  },
+  "tools": [
+    {
+      "name": "shopify_list_stores",
+      "description": "List all Shopify stores configured for this agent (alias, domain, auth mode). Call first."
+    },
+    {
+      "name": "shopify_graphql_query",
+      "description": "Execute a read-only GraphQL query against the Shopify Admin API. Mutations rejected by parser."
+    },
+    {
+      "name": "shopify_graphql_introspect",
+      "description": "Introspect the Admin GraphQL schema — full catalog or a single type."
+    },
+    {
+      "name": "shopify_bulk_query",
+      "description": "Launch an async bulk export of a read-only GraphQL query. Returns a BulkOperation ID."
+    },
+    {
+      "name": "shopify_bulk_poll",
+      "description": "Poll a BulkOperation by ID for status + download URL."
+    },
+    {
+      "name": "shopify_shopifyql",
+      "description": "Run a ShopifyQL analytics query (SQL-like, requires read_reports)."
+    }
+  ],
+  "keywords": [
+    "shopify",
+    "admin",
+    "graphql",
+    "ecommerce",
+    "analytics",
+    "orders",
+    "products",
+    "customers",
+    "inventory",
+    "read-only"
+  ],
+  "license": "MIT",
+  "user_config": {
+    "shopify_stores": {
+      "type": "string",
+      "title": "Stores (JSON, multi-store)",
+      "description": "JSON object mapping alias → store config, e.g. {\"main\":{\"domain\":\"x.myshopify.com\",\"client_id\":\"...\",\"client_secret\":\"...\"},\"outlet\":{\"domain\":\"y.myshopify.com\",\"access_token\":\"shpat_...\"}}. Alternative to the single-store fields below.",
+      "required": false,
+      "sensitive": true
+    },
+    "shopify_shop_domain": {
+      "type": "string",
+      "title": "Shop Domain (single-store)",
+      "description": "Admin domain in format '<shop>.myshopify.com' (NOT the custom storefront domain). Ignored if SHOPIFY_STORES is set.",
+      "required": false,
+      "sensitive": false
+    },
+    "shopify_client_id": {
+      "type": "string",
+      "title": "Client ID (Dev Dashboard)",
+      "description": "Dev Dashboard custom-app Client ID. Required unless SHOPIFY_ACCESS_TOKEN is provided.",
+      "required": false,
+      "sensitive": true
+    },
+    "shopify_client_secret": {
+      "type": "string",
+      "title": "Client Secret (Dev Dashboard)",
+      "description": "Dev Dashboard custom-app Client Secret. Required unless SHOPIFY_ACCESS_TOKEN is provided.",
+      "required": false,
+      "sensitive": true
+    },
+    "shopify_access_token": {
+      "type": "string",
+      "title": "Admin API Access Token (legacy)",
+      "description": "Pre-2026 legacy custom-app token (shpat_...). Alternative to Client ID/Secret.",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}
