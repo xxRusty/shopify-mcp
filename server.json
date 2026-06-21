@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pavle-Scalably/shopify-mcp",
+  "title": "Shopify Admin MCP Server (Read-Only)",
+  "description": "Read-only MCP for the Shopify Admin GraphQL API. 6 tools, full read surface, multi-store.",
+  "repository": {
+    "url": "https://github.com/scalably-io/shopify-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/scalably-io/shopify-mcp/releases/download/v1.0.0/shopify-mcp.mcpb",
+      "fileSha256": "c03204618f2a26c8bec5fea3b621b9f51b5947ee816d1b061811c6301cf97ce5",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
