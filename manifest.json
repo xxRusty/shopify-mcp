@@ -7,7 +7,7 @@
   "long_description": "6 universal tools: shopify_list_stores, shopify_graphql_query, shopify_graphql_introspect, shopify_bulk_query, shopify_bulk_poll, shopify_shopifyql. Covers 100% of the Shopify Admin GraphQL read surface (products, orders, customers, inventory, fulfillments, discounts, metafields, metaobjects, analytics, bulk exports). Read-only enforced at the query parser level via graphql-core; only bulkOperationCancel is permitted as a mutation. Multi-store: pass SHOPIFY_STORES as a JSON object mapping alias → {domain, client_id, client_secret} (or {domain, access_token}). Single-store fallback via SHOPIFY_DOMAIN + SHOPIFY_CLIENT_ID/SECRET or SHOPIFY_ACCESS_TOKEN. Supports both Dev Dashboard custom apps (client_credentials OAuth, 24h tokens auto-refreshed) and legacy pre-2026 custom apps (shpat_ tokens). Cost-based throttle aware per store.",
   "author": {
     "name": "ScalablyAI",
-    "url": "https://github.com/scalably/shopify-mcp"
+    "url": "https://github.com/scalably-io/shopify-mcp"
   },
   "server": {
     "type": "python",
