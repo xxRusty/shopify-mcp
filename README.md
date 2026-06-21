@@ -1,8 +1,14 @@
 # Shopify MCP — Universal, Read-Only
 
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![MCP](https://img.shields.io/badge/Model_Context_Protocol-compatible-01e9ac)
+![Shopify Admin API](https://img.shields.io/badge/Shopify_Admin_GraphQL-2026--04-black)
+
 A single MCP server exposing **100% of the Shopify Admin GraphQL API read surface** (version `2026-04`) through 6 universal tools. **Read-only is enforced at the query-parser level** — mutations are rejected before they ever reach Shopify, not merely discouraged. **Multi-store** by design: one server instance can serve many shops.
 
-Built and maintained by [ScalablyAI](https://scalably.io). Runs on the [Model Context Protocol](https://modelcontextprotocol.io). License: MIT.
+Built and maintained by [Scalably](https://scalably.io). Runs on the [Model Context Protocol](https://modelcontextprotocol.io). License: MIT.
+
+> **Why read-only at the parser level?** Giving an AI agent write access to a live store is how you end up with a deleted product or a wrong-priced variant. This server enforces read-only by *parsing* every query and rejecting mutations before they leave the process — not by trusting the model to behave, and not by relying on Shopify-side scopes alone. It's the safety boundary an agent in production actually needs. ([more on the pattern](https://scalably.io/blog/how-to-build-mcp-server-python))
 
 ## Quick start
 
@@ -119,6 +125,13 @@ This connector runs **locally**, on your own machine, under your own Shopify cre
 - **Contact:** hello@scalably.io
 
 The canonical hosted version of this policy: https://scalably.io/connector-privacy.html
+
+## Learn more
+
+We write about building production MCP servers and AI agents at [scalably.io/blog](https://scalably.io/blog):
+- [How to build an MCP server in Python](https://scalably.io/blog/how-to-build-mcp-server-python) — the read-only enforcement pattern used here, from a server we run in production
+- [What is an MCP server?](https://scalably.io/blog/what-is-an-mcp-server) — the host/client/server model
+- [MCP Inspector: debug your MCP server](https://scalably.io/blog/mcp-inspector-debug-mcp-server) — the silent failures to watch for
 
 ## References
 
