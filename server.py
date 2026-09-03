@@ -20,6 +20,7 @@ import time
 import logging
 import math
 import re
+from mcp.server.transport_security import TransportSecuritySettings
 
 from graphql import parse, GraphQLSyntaxError
 from graphql.language.ast import OperationDefinitionNode
@@ -57,7 +58,15 @@ REDACTION_PATTERNS = (
     re.compile(r"\b(shpua_|shpat_|shpss_|shpca_)[A-Za-z0-9]+\b"),
 )
 
-mcp = FastMCP("shopify")
+mcp = FastMCP(transport_security=TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=[
+        "127.0.0.1:*",
+        "localhost:*",
+        "shopify-mcp-eue6.onrender.com",
+        "shopify-mcp-eue6.onrender.com:*",
+    ],
+),)
 LOGGER = logging.getLogger(__name__)
 
 # Store registry populated at startup. Shape:
