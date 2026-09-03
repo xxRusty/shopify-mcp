@@ -25,6 +25,12 @@ from mcp.server.transport_security import TransportSecuritySettings
 from graphql import parse, GraphQLSyntaxError
 from graphql.language.ast import OperationDefinitionNode
 
+import jwt
+from jwt import PyJWKClient
+from pydantic import AnyHttpUrl
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
+
 # --- Constants ---
 SHOPIFY_API_VERSION = "2026-04"
 ADMIN_PATH_TEMPLATE = "/admin/api/{version}/graphql.json"
@@ -58,15 +64,67 @@ REDACTION_PATTERNS = (
     re.compile(r"\b(shpua_|shpat_|shpss_|shpca_)[A-Za-z0-9]+\b"),
 )
 
-mcp = FastMCP(transport_security=TransportSecuritySettings(
-    enable_dns_rebinding_protection=True,
-    allowed_hosts=[
-        "127.0.0.1:*",
-        "localhost:*",
-        "shopify-mcp-eue6.onrender.com",
-        "shopify-mcp-eue6.onrender.com:*",
-    ],
-),)
+AUTH0_DOMAIN = "dev-ufkbr7o2um1r88d1.eu.auth0.com"
+AUTH0_ISSUER = f"https://{AUTH0_DOMAIN}/"
+MCP_AUDIENCE = "https://shopify-mcp-eue6.onrender.com/mcp"
+
+_jwks_client = PyJWKClient(
+    f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+)
+
+
+class Auth0TokenVerifier(TokenVerifier):
+    async def verify_token(self, token: str) -> AccessToken | None:
+        try:
+            signing_key = _jwks_client.get_signing_key_from_jwt(token)
+
+            claims = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                audience=MCP_AUDIENCE,
+                issuer=AUTH0_ISSUER,
+            )
+
+            scope = claims.get("scope", "")
+            scopes = scope.split() if scope else []
+
+            return AccessToken(
+                token=token,
+                client_id=str(
+                    claims.get("azp")
+                    or claims.get("client_id")
+                    or claims.get("sub")
+                    or "chatgpt"
+                ),
+                scopes=scopes,
+                expires_at=claims.get("exp"),
+                subject=claims.get("sub"),
+                resource=MCP_AUDIENCE,
+            )
+
+        except Exception as exc:
+            LOGGER.warning("OAuth token rejected: %s", exc)
+            return None
+
+
+mcp = FastMCP(
+    token_verifier=Auth0TokenVerifier(),
+    auth=AuthSettings(
+        issuer_url=AnyHttpUrl(AUTH0_ISSUER),
+        resource_server_url=AnyHttpUrl(MCP_AUDIENCE),
+        required_scopes=[],
+    ),
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "127.0.0.1:*",
+            "localhost:*",
+            "shopify-mcp-eue6.onrender.com",
+            "shopify-mcp-eue6.onrender.com:*",
+        ],
+    ),
+)
 LOGGER = logging.getLogger(__name__)
 
 # Store registry populated at startup. Shape:
