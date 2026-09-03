@@ -856,6 +856,6 @@ if __name__ == "__main__":
             "  (c) SHOPIFY_DOMAIN + (SHOPIFY_ACCESS_TOKEN OR SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET) — single store only"
         )
     LOGGER.info("Shopify MCP registered %d store(s): %s", len(_STORES), sorted(_STORES))
-  mcp.settings.host = "0.0.0.0"
-mcp.settings.port = int(os.environ.get("PORT", "8000"))
-mcp.run(transport="streamable-http")
+    mcp.settings.host = "0.0.0.0"
+    mcp.settings.port = int(os.environ.get("PORT", "8000"))
+    mcp.run(transport="streamable-http")
