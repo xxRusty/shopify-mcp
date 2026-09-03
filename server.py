@@ -858,4 +858,6 @@ if __name__ == "__main__":
     LOGGER.info("Shopify MCP registered %d store(s): %s", len(_STORES), sorted(_STORES))
     mcp.settings.host = "0.0.0.0"
     mcp.settings.port = int(os.environ.get("PORT", "8000"))
+    mcp.settings.streamable_http_path = "/mcp"
+    mcp.settings.stateless_http = True
     mcp.run(transport="streamable-http")
