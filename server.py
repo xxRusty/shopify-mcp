@@ -30,6 +30,7 @@ from jwt import PyJWKClient
 from pydantic import AnyHttpUrl
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
+from starlette.responses import JSONResponse
 
 # --- Constants ---
 SHOPIFY_API_VERSION = "2026-04"
@@ -125,6 +126,23 @@ mcp = FastMCP(
         ],
     ),
 )
+@mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+async def oauth_authorization_server_metadata(request):
+    return JSONResponse(
+        {
+            "issuer": AUTH0_ISSUER,
+            "authorization_endpoint": f"{AUTH0_ISSUER}authorize",
+            "token_endpoint": f"{AUTH0_ISSUER}oauth/token",
+            "jwks_uri": f"{AUTH0_ISSUER}.well-known/jwks.json",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "code_challenge_methods_supported": ["S256"],
+            "token_endpoint_auth_methods_supported": [
+                "client_secret_post",
+                "client_secret_basic",
+            ],
+        }
+    )
 LOGGER = logging.getLogger(__name__)
 
 # Store registry populated at startup. Shape:
