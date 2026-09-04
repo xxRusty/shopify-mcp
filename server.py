@@ -1,11 +1,12 @@
-# server.py — Universal Shopify Admin API MCP (read-only, multi-store)
-# 6 generic tools covering 100% of the Admin GraphQL API read surface.
+# server.py — Universal Shopify Admin API MCP (multi-store)
+# Read-only Admin GraphQL surface + one narrow fulfillment write tool.
 # Supports:
 #   - Multiple stores per container via SHOPIFY_STORES JSON
 #   - Single-store fallback via SHOPIFY_DOMAIN + client_creds or access_token
 #   - Client-credentials OAuth flow (Dev Dashboard custom apps, 2026-01+)
 #   - Legacy shpat_ token fallback (pre-2026 custom apps)
-#   - Read-only GraphQL enforcement via graphql-core
+#   - Read-only GraphQL enforcement via graphql-core for the generic GraphQL tool
+#   - Dedicated fulfillment write tool (tracking + mark fulfilled only)
 #   - Cost-based throttle awareness with Retry-After-style sleep
 #   - Bulk Operations API (async exports)
 #   - ShopifyQL analytics wrapper
@@ -925,6 +926,186 @@ def shopify_shopifyql(
     """
     data = _graphql_call(cfg, wrapped, {"q": query}, api_version)
     return json.dumps(data, indent=2)
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Fulfill Shopify order with tracking",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+def shopify_fulfill_order(
+    order_number: str,
+    tracking_number: str,
+    tracking_url: str,
+    carrier: str = "Other",
+    notify_customer: bool = False,
+    shop: str | None = None,
+    api_version: str | None = None,
+) -> str:
+    """Mark all remaining fulfillable items on one Shopify order as fulfilled.
+
+    This dedicated write tool finds the order by its merchant-visible order
+    number/name, collects eligible fulfillment orders, then calls Shopify's
+    fulfillmentCreate mutation with tracking information.
+
+    The generic shopify_graphql_query tool remains read-only and arbitrary
+    mutations are still rejected by _assert_read_only.
+    """
+    raw_order_number = str(order_number).strip()
+    clean_order_number = raw_order_number.lstrip("#").strip()
+    if not clean_order_number:
+        raise ValueError("order_number must not be empty")
+
+    tracking_number = str(tracking_number).strip()
+    tracking_url = str(tracking_url).strip()
+    carrier = str(carrier).strip() or "Other"
+
+    if not tracking_number:
+        raise ValueError("tracking_number must not be empty")
+    if not tracking_url:
+        raise ValueError("tracking_url must not be empty")
+    if not (tracking_url.startswith("https://") or tracking_url.startswith("http://")):
+        raise ValueError("tracking_url must start with http:// or https://")
+
+    _, cfg = _resolve_store(shop)
+
+    lookup_query = """
+    query FindOrderForFulfillment($query: String!) {
+      orders(first: 10, query: $query) {
+        nodes {
+          id
+          name
+          displayFulfillmentStatus
+          fulfillmentOrders(first: 50) {
+            nodes {
+              id
+              status
+            }
+          }
+        }
+      }
+    }
+    """
+
+    lookup = _graphql_call(
+        cfg,
+        lookup_query,
+        {"query": f"name:{clean_order_number}"},
+        api_version,
+    )
+
+    if lookup.get("errors"):
+        raise RuntimeError(
+            "Shopify order lookup failed: "
+            + json.dumps(lookup["errors"], ensure_ascii=False)
+        )
+
+    nodes = ((((lookup.get("data") or {}).get("orders") or {}).get("nodes")) or [])
+    wanted_names = {clean_order_number, f"#{clean_order_number}", raw_order_number}
+    exact = [
+        node for node in nodes
+        if str(node.get("name") or "").strip() in wanted_names
+    ]
+
+    if not exact:
+        raise ValueError(f"Shopify order '{raw_order_number}' was not found exactly.")
+    if len(exact) > 1:
+        raise RuntimeError(
+            f"More than one exact Shopify order matched '{raw_order_number}'."
+        )
+
+    order = exact[0]
+    fulfillment_orders = (((order.get("fulfillmentOrders") or {}).get("nodes")) or [])
+    eligible = [
+        fo for fo in fulfillment_orders
+        if fo.get("id")
+        and str(fo.get("status") or "").upper() not in {"CLOSED", "CANCELLED"}
+    ]
+
+    if not eligible:
+        return json.dumps(
+            {
+                "ok": True,
+                "changed": False,
+                "order_id": order.get("id"),
+                "order_name": order.get("name"),
+                "message": "Order has no remaining eligible fulfillment orders.",
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    mutation = """
+    mutation FulfillOrder($fulfillment: FulfillmentInput!, $message: String) {
+      fulfillmentCreate(fulfillment: $fulfillment, message: $message) {
+        fulfillment {
+          id
+          status
+          createdAt
+          trackingInfo {
+            company
+            number
+            url
+          }
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+    """
+
+    variables = {
+        "fulfillment": {
+            "lineItemsByFulfillmentOrder": [
+                {"fulfillmentOrderId": fo["id"]} for fo in eligible
+            ],
+            "notifyCustomer": bool(notify_customer),
+            "trackingInfo": {
+                "company": carrier,
+                "number": tracking_number,
+                "url": tracking_url,
+            },
+        },
+        "message": "Fulfilled via ChatGPT MCP",
+    }
+
+    result = _graphql_call(cfg, mutation, variables, api_version)
+
+    if result.get("errors"):
+        raise RuntimeError(
+            "Shopify fulfillment mutation failed: "
+            + json.dumps(result["errors"], ensure_ascii=False)
+        )
+
+    payload = (((result.get("data") or {}).get("fulfillmentCreate")) or {})
+    user_errors = payload.get("userErrors") or []
+    if user_errors:
+        raise RuntimeError(
+            "Shopify rejected fulfillment: "
+            + json.dumps(user_errors, ensure_ascii=False)
+        )
+
+    fulfillment = payload.get("fulfillment")
+    if not fulfillment:
+        raise RuntimeError("Shopify returned no fulfillment and no userErrors.")
+
+    return json.dumps(
+        {
+            "ok": True,
+            "changed": True,
+            "order_id": order.get("id"),
+            "order_name": order.get("name"),
+            "fulfillment": fulfillment,
+        },
+        indent=2,
+        ensure_ascii=False,
+    )
 
 
 # --- Main ---
